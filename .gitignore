@@ -26,5 +26,3 @@ package-lock.json
 *.swp
 *.bak
 
-#  Docker 
-.dockerignore

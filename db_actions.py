@@ -2,7 +2,8 @@ import psycopg2
 import config
 import math
 
-# database connection
+# ส่วนจัดการการเชื่อมต่อและประมวลผลฐานข้อมูล
+# เชื่อมต่อฐานข้อมูล PostgreSQL โดยดึงค่าจากไฟล์ config
 def get_db_connection():
     try:
         conn = psycopg2.connect(
@@ -17,7 +18,7 @@ def get_db_connection():
         print(f"[ERROR] DB Connection Failed: {e}")
         return None
 
-# execute and commit
+# รันคำสั่ง SQL (Insert/Update/Delete) พร้อมบันทึก (Commit) และยกเลิก (Rollback) หากมี Error
 def _execute_commit(sql, params):
     conn = get_db_connection()
     if not conn: return False
@@ -29,14 +30,14 @@ def _execute_commit(sql, params):
             return affected > 0 
     except Exception as e:
         print(f"[ERROR] SQL Action Failed: {e}")
-        conn.rollback()
+        conn.rollback() # ย้อนกลับข้อมูลถ้าพัง
         raise e 
     finally:
         conn.close()
 
-#  Metadata Sync Function 
+# ส่วนฟังก์ชันการทำงานหลัก 
+# เช็คการแก้ไขข้อมูล
 def mark_as_pending():
-    """ ปักธงว่ามีการแก้ไขข้อมูล เพื่อรอ Cron Job มาจัดการตอนเที่ยงคืน """
     sql = f"""
         UPDATE {config.DB_SCHEMA}.system_metadata 
         SET pending_update = TRUE 
@@ -44,7 +45,7 @@ def mark_as_pending():
     """
     return _execute_commit(sql, None)
 
-# pagination and filtering logic
+# ดึงข้อมูลมาแสดงผลแบบแบ่งหน้า รองรับ search และ filter 
 def get_paginated_list(table_name, order_by_col, page=1, per_page=10, 
                        search_query=None, search_cols=[], 
                        filter_col=None, filter_val=None):
@@ -58,6 +59,7 @@ def get_paginated_list(table_name, order_by_col, page=1, per_page=10,
             where_clauses = []
             params = []
 
+            #  JOIN ตาราง ตามประเภทของข้อมูลที่จะดึง
             if table_name == 'manual_chunks':
                 from_sql = f"""
                     {config.DB_SCHEMA}.manual_chunks m
@@ -80,6 +82,7 @@ def get_paginated_list(table_name, order_by_col, page=1, per_page=10,
                 from_sql = f"{config.DB_SCHEMA}.{table_name}"
                 select_sql = "*"
 
+            # สร้าง if search 
             if search_query and search_cols:
                 formatted_cols = []
                 for col in search_cols:
@@ -97,6 +100,7 @@ def get_paginated_list(table_name, order_by_col, page=1, per_page=10,
                 term = f"%{search_query}%"
                 params.extend([term] * len(formatted_cols))
 
+            # สร้าง if filter
             if filter_col and filter_val and filter_val != 'all':
                 actual_filter_col = filter_col
                 if table_name in ['manual_chunks', 'support_stories', 'view_support_stories']:
@@ -112,6 +116,7 @@ def get_paginated_list(table_name, order_by_col, page=1, per_page=10,
             if where_clauses:
                 where_sql = "WHERE " + " AND ".join(where_clauses)
 
+            # นับจำนวนข้อมูลทั้งหมดเพื่อคำนวณจำนวนหน้า
             cur.execute(f"SELECT COUNT(*) FROM {from_sql} {where_sql}", tuple(params))
             total_count = cur.fetchone()[0]
             total_pages = max(1, math.ceil(total_count / per_page))
@@ -129,8 +134,9 @@ def get_paginated_list(table_name, order_by_col, page=1, per_page=10,
         conn.close()
     return items, total_pages, total_count
 
-# research funds
+# หมวดทุนวิจัย Research Funds
 def create_fund(data):
+    # เพิ่มทุนวิจัยใหม่
     sql = f"""INSERT INTO {config.DB_SCHEMA}.research_funds 
     (fund_abbr, fund_name_th, fund_name_en, fiscal_year, source_agency, start_period, end_period, status)
     VALUES (%(fund_abbr)s, %(fund_name_th)s, %(fund_name_en)s, %(fiscal_year)s, %(source_agency)s, %(start_period)s, %(end_period)s, %(status)s)"""
@@ -139,6 +145,7 @@ def create_fund(data):
     return success
 
 def update_fund(fund_id, data):
+    # แก้ไขทุนวิจัยเดิม
     data['pk'] = fund_id
     sql = f"""UPDATE {config.DB_SCHEMA}.research_funds SET 
     fund_abbr=%(fund_abbr)s, fund_name_th=%(fund_name_th)s, fund_name_en=%(fund_name_en)s, fiscal_year=%(fiscal_year)s, 
@@ -148,18 +155,21 @@ def update_fund(fund_id, data):
     return success
 
 def delete_fund(fund_id):
+    # ลบทุนวิจัย
     success = _execute_commit(f"DELETE FROM {config.DB_SCHEMA}.research_funds WHERE fund_id = %s", (fund_id,))
     if success: mark_as_pending()
     return success
 
-# glossary
+# พจนานุกรมคำศัพท์ Glossary
 def create_glossary(data):
+    # เพิ่มคำศัพท์ใหม่
     sql = f"INSERT INTO {config.DB_SCHEMA}.glossary_terms (word, meaning, word_type) VALUES (%(word)s, %(meaning)s, %(word_type)s)"
     success = _execute_commit(sql, data)
     if success: mark_as_pending()
     return success
 
 def update_glossary(word_id, data):
+    # แก้ไขคำศัพท์
     data['pk'] = word_id
     sql = f"UPDATE {config.DB_SCHEMA}.glossary_terms SET word=%(word)s, meaning=%(meaning)s, word_type=%(word_type)s WHERE word_id=%(pk)s"
     success = _execute_commit(sql, data)
@@ -167,12 +177,14 @@ def update_glossary(word_id, data):
     return success
 
 def delete_glossary(word_id):
+    # ลบคำศัพท์
     success = _execute_commit(f"DELETE FROM {config.DB_SCHEMA}.glossary_terms WHERE word_id = %s", (word_id,))
     if success: mark_as_pending()
     return success
 
-# manuals
+# เนื้อหาคู่มือการใช้งาน Manual Chunks
 def create_manual_chunk(data):
+    # เพิ่มเนื้อหาคู่มือใหม่
     sql = f"""INSERT INTO {config.DB_SCHEMA}.manual_chunks (doc_id, category_id, topic, section, step_number, content, data_type, fund_abbr)
     VALUES (%(doc_id)s, %(category_id)s, %(topic)s, %(section)s, %(step_number)s, %(content)s, %(data_type)s, %(fund_abbr)s)"""
     success = _execute_commit(sql, data)
@@ -180,6 +192,7 @@ def create_manual_chunk(data):
     return success
 
 def update_manual_chunk(chunk_id, data):
+    # แก้ไขเนื้อหาคู่มือ
     data['pk'] = chunk_id
     sql = f"""UPDATE {config.DB_SCHEMA}.manual_chunks SET topic=%(topic)s, content=%(content)s, section=%(section)s, step_number=%(step_number)s, 
     fund_abbr=%(fund_abbr)s, data_type=%(data_type)s, doc_id=%(doc_id)s, category_id=%(category_id)s WHERE id=%(pk)s"""
@@ -188,18 +201,21 @@ def update_manual_chunk(chunk_id, data):
     return success
 
 def delete_manual_chunk(chunk_id):
+    # ลบเนื้อหาคู่มือ
     success = _execute_commit(f"DELETE FROM {config.DB_SCHEMA}.manual_chunks WHERE id = %s", (chunk_id,))
     if success: mark_as_pending()
     return success
 
-# support stories
+# การแก้ปัญหา Support Stories
 def create_support_story(data):
+    # เพิ่มเคสช่วยเหลือใหม่
     sql = f"INSERT INTO {config.DB_SCHEMA}.support_stories (category_id, scenario, solution) VALUES (%(category_id)s, %(scenario)s, %(solution)s)"
     success = _execute_commit(sql, data)
     if success: mark_as_pending()
     return success
 
 def update_support_story(pk_id, data):
+    # แก้ไขเคสช่วยเหลือ
     data['pk'] = pk_id
     sql = f"UPDATE {config.DB_SCHEMA}.support_stories SET scenario=%(scenario)s, solution=%(solution)s, category_id=%(category_id)s WHERE id=%(pk)s"
     success = _execute_commit(sql, data)
@@ -207,18 +223,21 @@ def update_support_story(pk_id, data):
     return success
 
 def delete_support_story(story_id):
+    # ลบเคสช่วยเหลือ
     success = _execute_commit(f"DELETE FROM {config.DB_SCHEMA}.support_stories WHERE id = %s", (story_id,))
     if success: mark_as_pending()
     return success
 
-# documents
+# เอกสารอ้างอิง Documents
 def create_document(data):
+    # เพิ่มเอกสารใหม่
     sql = f"INSERT INTO {config.DB_SCHEMA}.documents (title, version, last_updated) VALUES (%(title)s, %(version)s, %(last_updated)s)"
     success = _execute_commit(sql, data)
     if success: mark_as_pending()
     return success
 
 def update_document(doc_id, data):
+    # แก้ไขข้อมูลเอกสาร
     data['pk'] = doc_id
     sql = f"UPDATE {config.DB_SCHEMA}.documents SET title=%(title)s, version=%(version)s, last_updated=%(last_updated)s WHERE id=%(pk)s"
     success = _execute_commit(sql, data)
@@ -226,18 +245,21 @@ def update_document(doc_id, data):
     return success
 
 def delete_document(doc_id):
+    # ลบเอกสาร
     success = _execute_commit(f"DELETE FROM {config.DB_SCHEMA}.documents WHERE id = %s", (doc_id,))
     if success: mark_as_pending()
     return success
 
-# categories
+# หมวดหมู่ข้อมูล Categories
 def create_category(data):
+    # เพิ่มหมวดหมู่ใหม่
     sql = f"INSERT INTO {config.DB_SCHEMA}.categories (name, main_group, description) VALUES (%(name)s, %(main_group)s, %(description)s)"
     success = _execute_commit(sql, data)
     if success: mark_as_pending()
     return success
 
 def update_category(cat_id, data):
+    # แก้ไขหมวดหมู่
     data['pk'] = cat_id
     sql = f"UPDATE {config.DB_SCHEMA}.categories SET name=%(name)s, main_group=%(main_group)s, description=%(description)s WHERE id=%(pk)s"
     success = _execute_commit(sql, data)
@@ -245,12 +267,15 @@ def update_category(cat_id, data):
     return success
 
 def delete_category(cat_id):
+    # ลบหมวดหมู่
     success = _execute_commit(f"DELETE FROM {config.DB_SCHEMA}.categories WHERE id = %s", (cat_id,))
     if success: mark_as_pending()
     return success
 
-# helpers
+#  Helpers
+
 def get_dropdown_options():
+    # ดึงข้อมูลสำหรับทำตัวเลือก Dropdown ในหน้าฟอร์ม
     conn = get_db_connection()
     options = {'categories': [], 'documents': [], 'funds': []}
     if not conn: return options
@@ -267,6 +292,7 @@ def get_dropdown_options():
     return options
 
 def get_dashboard_stats():
+    # ดึงสถิติจำนวนข้อมูลทั้งหมด และประวัติการแชทล่าสุด สำหรับแสดงผลหน้า Dashboard
     conn = get_db_connection()
     stats = {
         'funds_count': 0, 'glossary_count': 0, 'manuals_count': 0,
@@ -288,6 +314,7 @@ def get_dashboard_stats():
                 cur.execute(f"SELECT COUNT(*) FROM {config.DB_SCHEMA}.{table}")
                 stats[key] = cur.fetchone()[0]
             try:
+                # จัดกลุ่มประวัติแชทตาม session_id เพื่อให้แสดงผลเป็นกล่องบทสนทนา
                 cur.execute(f"SELECT * FROM {config.DB_SCHEMA}.chat_logs ORDER BY created_at DESC")
                 cols = [desc[0] for desc in cur.description]
                 raw_logs = [dict(zip(cols, row)) for row in cur.fetchall()]
@@ -309,6 +336,7 @@ def get_dashboard_stats():
     return stats
 
 def get_distinct_values(table_name, column_name):
+    # ดึงค่าที่ไม่ซ้ำกันในคอลัมน์ ใช้สำหรับทำตัวเลือกในช่อง filter 
     conn = get_db_connection()
     items = []
     if conn:
@@ -318,18 +346,9 @@ def get_distinct_values(table_name, column_name):
         conn.close()
     return items
 
-def get_user_by_username(username):
-    conn = get_db_connection()
-    user = None
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT * FROM {config.DB_SCHEMA}.users WHERE username = %s", (username,))
-            if cur.rowcount > 0:
-                user = dict(zip([d[0] for d in cur.description], cur.fetchone()))
-        conn.close()
-    return user
 
 def get_blocking_ids(child_table, fk_column, parent_id, pk_name='id'):
+    # ตรวจสอบว่ามีข้อมูลอื่นอ้างอิง ติด กับ ID นี้อยู่หรือไม่ เช็ตก่อนลบ 
     conn = get_db_connection()
     results = []
     if conn:
