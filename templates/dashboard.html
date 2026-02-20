@@ -1,0 +1,252 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<style>
+    /* Chat Popup Styles */
+    .chat-box {
+        background-color: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .chat-message { margin-bottom: 15px; display: flex; flex-direction: column; }
+    .chat-message.user { align-items: flex-end; }
+    .chat-message.ai { align-items: flex-start; }
+    .bubble {
+        max-width: 80%; padding: 10px 15px; border-radius: 15px;
+        font-size: 0.95rem; line-height: 1.5; position: relative;
+    }
+    .chat-message.user .bubble {
+        background-color: #4f46e5; color: white; border-bottom-right-radius: 4px;
+    }
+    .chat-message.ai .bubble {
+        background-color: #e9ecef; color: #333; border-bottom-left-radius: 4px;
+    }
+    .chat-time { font-size: 0.75rem; color: #999; margin-top: 4px; padding: 0 4px; }
+
+    .table-scroll-container {
+        max-height: 450px; 
+        overflow-y: auto;  
+        position: relative;
+    }
+    .table-scroll-container thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #f8f9fa; 
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+</style>
+
+<div class="row mb-5 text-center">
+    <div class="col-lg-8 mx-auto">
+        <h1 class="display-6 fw-bold text-dark">Knowledge Base Dashboard</h1>
+        <p class="text-muted lead">ภาพรวมข้อมูลและการใช้งานระบบ</p>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-hover h-100 border-start border-4 border-primary shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="text-muted mb-0 text-uppercase">Funds</h6>
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle text-primary"><i class="bi bi-cash-stack fs-4"></i></div>
+                </div>
+                <h2 class="fw-bold mb-0">{{ stats.funds_count }}</h2>
+                <small class="text-muted">รายการทุนวิจัย</small>
+                <a href="/funds" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-hover h-100 border-start border-4 border-success shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="text-muted mb-0 text-uppercase">Glossary</h6>
+                    <div class="bg-success bg-opacity-10 p-2 rounded-circle text-success"><i class="bi bi-translate fs-4"></i></div>
+                </div>
+                <h2 class="fw-bold mb-0">{{ stats.glossary_count }}</h2>
+                <small class="text-muted">คำศัพท์ในระบบ</small>
+                <a href="/glossary" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-hover h-100 border-start border-4 border-info shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="text-muted mb-0 text-uppercase">Documents</h6>
+                    <div class="bg-info bg-opacity-10 p-2 rounded-circle text-info"><i class="bi bi-file-earmark-text fs-4"></i></div>
+                </div>
+                <h2 class="fw-bold mb-0">{{ stats.docs_count }}</h2>
+                <small class="text-muted">เอกสารต้นฉบับ</small>
+                <a href="/documents" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-hover h-100 border-start border-4 border-secondary shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="text-muted mb-0 text-uppercase">Categories</h6>
+                    <div class="bg-secondary bg-opacity-10 p-2 rounded-circle text-secondary"><i class="bi bi-tags fs-4"></i></div>
+                </div>
+                <h2 class="fw-bold mb-0">{{ stats.cats_count }}</h2>
+                <small class="text-muted">หมวดหมู่ทั้งหมด</small>
+                <a href="/categories" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-hover h-100 border-start border-4 border-warning shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="text-muted mb-0 text-uppercase">Manual Chunks</h6>
+                    <div class="bg-warning bg-opacity-10 p-2 rounded-circle text-warning text-dark"><i class="bi bi-journal-text fs-4"></i></div>
+                </div>
+                <h2 class="fw-bold mb-0">{{ stats.manuals_count }}</h2>
+                <small class="text-muted">เนื้อหาย่อยคู่มือ</small>
+                <a href="/manuals" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-hover h-100 border-start border-4 border-danger shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="text-muted mb-0 text-uppercase">Stories</h6>
+                    <div class="bg-danger bg-opacity-10 p-2 rounded-circle text-danger"><i class="bi bi-life-preserver fs-4"></i></div>
+                </div>
+                <h2 class="fw-bold mb-0">{{ stats.stories_count }}</h2>
+                <small class="text-muted">เคสแก้ปัญหา</small>
+                <a href="/stories" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 rounded-4">
+    <div class="card-header bg-white py-3 border-bottom-0">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-people-fill text-primary me-2"></i>รายการผู้ใช้งานล่าสุด 
+                </h5>
+                <small class="text-muted">คลิก "ดูแชท" เพื่ออ่านประวัติการสนทนาของแต่ละคน</small>
+            </div>
+            <a href="/" class="btn btn-sm btn-outline-secondary rounded-circle" title="รีเฟรชข้อมูล">
+                <i class="bi bi-arrow-clockwise"></i>
+            </a>
+        </div>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive table-scroll-container">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="text-secondary">
+                    <tr class="text-uppercase small fw-bold">
+                        <th class="ps-4" style="width: 30%;">ผู้ใช้งาน (User / Session)</th>
+                        <th style="width: 25%;">อัปเดตล่าสุด</th>
+                        <th class="text-center" style="width: 15%;">จำนวนข้อความ</th>
+                        <th class="text-end pe-4" style="width: 30%;">ตรวจสอบ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if stats.recent_logs %}
+                        {% for session in stats.recent_logs %}
+                            {% set session_id = session.session_id %}
+                            {% set logs = session.messages %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-person-fill fs-5"></i>
+                                        </div>
+                                        <div>
+                                            <span class="d-block fw-bold text-dark">User Session</span>
+                                            <span class="badge bg-light text-secondary border" style="font-family: monospace;">
+                                                {{ session_id[:8] if session_id else 'Guest' }}...
+                                            </span>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="text-muted">
+                                    <i class="bi bi-clock me-1"></i>
+                                    {{ session.last_updated.strftime('%d/%m/%Y %H:%M') if session.last_updated else '-' }}
+                                </td>
+
+                                <td class="text-center">
+                                    <span class="badge rounded-pill bg-info text-dark">
+                                        {{ logs|length }} ข้อความ
+                                    </span>
+                                </td>
+
+                                <td class="text-end pe-4">
+                                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modal-{{ loop.index }}">
+                                        <i class="bi bi-chat-text me-1"></i> ดูแชท
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <div class="modal fade" id="modal-{{ loop.index }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content border-0 shadow">
+                                        <div class="modal-header bg-light">
+                                            <h5 class="modal-title">
+                                                <i class="bi bi-person-lines-fill me-2"></i>ประวัติการสนทนา
+                                                <small class="text-muted ms-2 fs-6">Session: {{ session_id }}</small>
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body bg-white">
+                                            <div class="chat-box">
+                                                {% for log in logs|reverse %} 
+                                                    <div class="chat-message user">
+                                                        <div class="bubble shadow-sm">
+                                                            {{ log.user_input }}
+                                                        </div>
+                                                        <div class="chat-time">User • {{ log.created_at.strftime('%H:%M') }}</div>
+                                                    </div>
+                                                    <div class="chat-message ai">
+                                                        <div class="bubble shadow-sm border">
+                                                            {{ log.ai_response }}
+                                                            {% if log.feedback_score == 1 %}
+                                                                <div class="mt-1 pt-1 border-top border-secondary border-opacity-25">
+                                                                    <i class="bi bi-hand-thumbs-up-fill text-success"></i> <span class="small text-success">User ชอบคำตอบนี้</span>
+                                                                </div>
+                                                            {% elif log.feedback_score == 0 %}
+                                                                <div class="mt-1 pt-1 border-top border-secondary border-opacity-25">
+                                                                    <i class="bi bi-hand-thumbs-down-fill text-danger"></i> <span class="small text-danger">User ไม่ชอบคำตอบนี้</span>
+                                                                </div>
+                                                            {% endif %}
+                                                        </div>
+                                                        <div class="chat-time">AI • {{ log.created_at.strftime('%H:%M') }}</div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer bg-light">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-4 opacity-25 mb-3 d-block"></i>
+                                <span>ยังไม่มีประวัติการใช้งาน</span>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% macro render_pagination(endpoint, page, total_pages) %}
+    {% if total_pages > 1 %}
+    <style>
+        /* ปรับขนาดตัวเลขให้ใหญ่ขึ้น */
+        .page-link-lg {
+            width: 45px; 
+            height: 45px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin: 2px;
+        }
+        
+        .page-link-lg:hover:not(.active-link) {
+            background-color: #f0f0f0;
+            color: #000 !important;
+            transform: translateY(-2px);
+        }
+
+        .active-link {
+            background-color: #212529 !important; /* สีดำ */
+            color: #fff !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* ให้ pagination ขยับลงบรรทัดใหม่ได้ถ้าหน้าเยอะเกินไป */
+        .pagination-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+    </style>
+
+    <div class="card-footer bg-white py-4">
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-container mb-0">
+                {% set args = request.args.to_dict() %}
+                {% if 'page' in args %}{% set _ = args.pop('page') %}{% endif %}
+                
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link border-0 text-secondary page-link-lg" 
+                       href="{{ url_for(endpoint, page=page-1, **args) if page > 1 else '#' }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+
+                {% for p in range(1, total_pages + 1) %}
+                    <li class="page-item">
+                        <a class="page-link border-0 rounded-circle page-link-lg {% if p == page %}active-link{% else %}text-secondary{% endif %}" 
+                           href="{{ url_for(endpoint, page=p, **args) }}">
+                            {{ p }}
+                        </a>
+                    </li>
+                {% endfor %}
+
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link border-0 text-secondary page-link-lg" 
+                       href="{{ url_for(endpoint, page=page+1, **args) if page < total_pages else '#' }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+{% endmacro %}

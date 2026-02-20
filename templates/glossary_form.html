@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-success text-white py-3">
+                <h5 class="mb-0 fw-bold">
+                    {% if action == 'add' %}
+                        <i class="bi bi-plus-circle me-2"></i>เพิ่มคำศัพท์ใหม่
+                    {% else %}
+                        <i class="bi bi-pencil-square me-2"></i>แก้ไขคำศัพท์
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">คำศัพท์ / สถานะ<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="word" value="{{ term.word or '' }}" required
+                               placeholder="เช่น ทุน FF, พร้อมจ่าย">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ประเภท<span class="text-danger">*</span></label>
+                        <select class="form-select" name="word_type" required>
+                            <option value="">-- เลือกประเภท --</option>
+                            {% for type in type_options %}
+                                <option value="{{ type }}" {% if term.word_type == type %}selected{% endif %}>{{ type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">ความหมาย<span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="meaning" rows="5" required
+                                  placeholder="อธิบายความหมาย คำแปล หรือบริบทการใช้งานที่ถูกต้อง...">{{ term.meaning or '' }}</textarea>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="/glossary" class="btn btn-light border me-2">ยกเลิก</a>
+                        <button type="submit" class="btn btn-success px-4">บันทึกข้อมูล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

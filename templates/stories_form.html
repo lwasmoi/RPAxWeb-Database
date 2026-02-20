@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-danger text-white py-3">
+                <h5 class="mb-0 fw-bold">
+                    {% if action == 'add' %}
+                        <i class="bi bi-plus-circle me-2"></i>เพิ่ม Support Story
+                    {% else %}
+                        <i class="bi bi-pencil-square me-2"></i>แก้ไข Support Story
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">หมวดหมู่ (Category) <span class="text-danger">*</span></label>
+                        <select class="form-select" name="category_id" required>
+                            <option value="">-- เลือกหมวดหมู่ --</option>
+                            {% for c in categories %}
+                            <option value="{{ c.id }}" {% if story.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ปัญหา / อาการ (Scenario) <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="scenario" rows="3" required
+                                  placeholder="เช่น ผู้ใช้งานเข้าสู่ระบบไม่ได้ ขึ้นข้อความ Error 500...">{{ story.scenario or '' }}</textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">วิธีแก้ไข (Solution) <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="solution" rows="6" required
+                                  placeholder="1. ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต&#10;2. ลองกดรีเฟรชหน้าจอ...">{{ story.solution or '' }}</textarea>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="/stories" class="btn btn-light border me-2">ยกเลิก</a>
+                        <button type="submit" class="btn btn-danger px-4">บันทึกข้อมูล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

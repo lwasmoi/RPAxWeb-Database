@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_pagination %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="/" class="btn btn-sm btn-light text-secondary rounded-pill px-3">
+        <i class="bi bi-arrow-left me-1"></i> กลับหน้าหลัก
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0 text-primary">Research Funds</h2>
+        <p class="text-muted small mb-0">รายการทุนวิจัย ({{ total_count }} รายการ)</p>
+    </div>
+    <a href="/funds/add" class="btn btn-primary shadow-sm rounded-pill px-4">
+        <i class="bi bi-plus-lg me-1"></i> เพิ่มทุนวิจัย
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4 bg-light">
+    <div class="card-body py-3">
+        <form action="" method="GET">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="ค้นหาชื่อย่อ, ชื่อทุน..." value="{{ search }}">
+                </div>
+                <div class="col-md-4">
+                    <select name="filter" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- สถานะทั้งหมด --</option>
+                        {% for s in status_options %}
+                            <option value="{{ s }}" {% if filter_val == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> ค้นหา
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-primary bg-opacity-10">
+                    <tr>
+                        <th class="ps-4 text-dark" style="width: 8%;">ID</th>
+                        <th class="text-dark" style="width: 12%;">ชื่อย่อ</th>
+                        <th class="text-dark" style="width: 40%;">ชื่อทุนวิจัย</th>
+                        <th class="text-dark" style="width: 15%;">แหล่งทุน</th>
+                        <th class="text-dark" style="width: 15%;">สถานะ</th>
+                        <th class="text-end pe-4 text-dark" style="width: 10%;">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in funds %}
+                    <tr>
+                        <td class="ps-4 text-muted small">{{ f.fund_id }}</td>
+                        <td class="fw-bold text-primary">{{ f.fund_abbr }}</td>
+                        <td>
+                            <div class="text-dark fw-medium">{{ f.fund_name_th }}</div>
+                            <small class="text-muted">{{ f.fund_name_en or '' }}</small>
+                        </td>
+                        <td class="small text-secondary">{{ f.source_agency or '-' }}</td>
+                        <td>
+                            <span class="badge {% if f.status == 'Y' or f.status == 'Active' %}bg-success{% else %}bg-secondary{% endif %} rounded-pill fw-normal px-3">
+                                {{ f.status }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="d-flex justify-content-end gap-1">
+                                <a href="/funds/edit/{{ f.fund_id }}" 
+                                   class="btn btn-sm btn-outline-primary rounded-3 d-flex align-items-center justify-content-center" 
+                                   style="width: 38px; height: 38px;" title="แก้ไข">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                
+                                <form action="/funds/delete/{{ f.fund_id }}" method="POST" class="d-inline" id="delete-form-{{ f.fund_id }}">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger rounded-3 d-flex align-items-center justify-content-center" 
+                                            style="width: 38px; height: 38px;" title="ลบ"
+                                            onclick="confirmDelete('{{ f.fund_id }}', '{{ f.fund_abbr }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">ไม่พบข้อมูลทุนวิจัย</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="border-top">
+        {{ render_pagination('funds_list', page, total_pages) }}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_pagination %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="/" class="btn btn-sm btn-light text-secondary rounded-pill px-3">
+        <i class="bi bi-arrow-left me-1"></i> กลับหน้าหลัก
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0 text-info">Documents</h2>
+        <p class="text-muted small mb-0">เอกสารต้นฉบับ ({{ total_count }} รายการ)</p>
+    </div>
+    <a href="/documents/add" class="btn btn-info text-white shadow-sm rounded-pill px-4">
+        <i class="bi bi-plus-lg me-1"></i> เพิ่มเอกสาร
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4 bg-light">
+    <div class="card-body py-3">
+        <form action="" method="GET">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="ค้นหาเอกสาร..." value="{{ search }}">
+                </div>
+                
+                <div class="col-md-4">
+                    <select name="filter" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- เวอร์ชันทั้งหมด --</option>
+                        {% for v in version_options %}
+                            <option value="{{ v }}" {% if filter_val == v %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-info text-white w-100">
+                        <i class="bi bi-search"></i> ค้นหา
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-info bg-opacity-10">
+                    <tr>
+                        <th class="ps-4 text-dark" style="width: 5%;">ID</th>
+                        <th class="text-dark" style="width: 55%;">ชื่อเอกสาร</th>
+                        <th class="text-dark" style="width: 15%;">เวอร์ชัน</th>
+                        <th class="text-dark" style="width: 15%;">อัปเดตล่าสุด</th>
+                        <th class="text-end pe-4 text-dark" style="width: 10%;">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in docs %}
+                    <tr>
+                        <td class="ps-4 text-muted">{{ d.id }}</td>
+                        <td class="fw-bold text-dark">{{ d.title }}</td>
+                        <td>
+                            <span class="badge bg-white text-info border border-info border-opacity-25 fw-normal">V.{{ d.version }}</span>
+                        </td>
+                        <td class="text-muted small">{{ d.last_updated or '-' }}</td>
+                        <td class="text-end pe-4">
+                            <div class="d-flex justify-content-end gap-1">
+                                <a href="/documents/edit/{{ d.id }}" 
+                                   class="btn btn-sm btn-outline-info rounded-3 d-flex align-items-center justify-content-center" 
+                                   style="width: 38px; height: 38px;">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form action="/documents/delete/{{ d.id }}" method="POST" class="d-inline" id="delete-form-{{ d.id }}">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger rounded-3 d-flex align-items-center justify-content-center" 
+                                            style="width: 38px; height: 38px;"
+                                            onclick="confirmDelete('{{ d.id }}', '{{ d.title }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">ไม่พบข้อมูลเอกสาร</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="border-top">
+        {{ render_pagination('documents_list', page, total_pages) }}
+    </div>
+</div>
+
+<script>
+function confirmDelete(id, title) {
+    Swal.fire({
+        title: 'ยืนยันการลบเอกสาร?',
+        text: `คุณกำลังจะลบเอกสาร "${title}" ใช่หรือไม่? หากเอกสารนี้ถูกใช้งานในคู่มือ คุณจะไม่สามารถลบได้`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'ใช่, ลบทิ้งเลย',
+        cancelButtonText: 'ยกเลิก',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('delete-form-' + id).submit();
+        }
+    })
+}
+</script>
+{% endblock %}

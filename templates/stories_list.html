@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_pagination %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="/" class="btn btn-sm btn-light text-secondary rounded-pill px-3">
+        <i class="bi bi-arrow-left me-1"></i> กลับหน้าหลัก
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0 text-danger">Support Stories</h2>
+        <p class="text-muted small mb-0">เคสแก้ปัญหา ({{ total_count }} รายการ)</p>
+    </div>
+    <a href="/stories/add" class="btn btn-danger shadow-sm rounded-pill px-4">
+        <i class="bi bi-plus-lg me-1"></i> เพิ่ม Story
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4 bg-light">
+    <div class="card-body py-3">
+        <form action="" method="GET">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="ค้นหาปัญหา, วิธีแก้..." value="{{ search }}">
+                </div>
+                
+                <div class="col-md-4">
+                    <select name="filter" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- กรองตามหมวดหมู่ --</option>
+                        {% for c in categories %}
+                            <option value="{{ c.name }}" {% if filter_val == c.name %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="bi bi-search"></i> ค้นหา
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-danger bg-opacity-10">
+                    <tr>
+                        <th class="ps-4 text-dark" style="width: 5%;">ID</th>
+                        <th class="text-dark" style="width: 15%;">หมวดหมู่</th>
+                        <th class="text-dark" style="width: 30%;">ปัญหา</th>
+                        <th class="text-dark" style="width: 40%;">วิธีแก้</th>
+                        <th class="text-end pe-4 text-dark" style="width: 10%;">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in stories %}
+                    <tr>
+                        <td class="ps-4 text-muted">{{ s.id }}</td>
+                        <td>
+                            <span class="badge bg-white text-danger border border-danger border-opacity-25 fw-normal">
+                                {{ s.category_name }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="fw-bold text-dark">{{ s.scenario or s.problem }}</div>
+                        </td>
+                        <td>
+                            <div class="text-muted small text-truncate" style="max-width: 400px;">
+                                {{ s.solution }}
+                            </div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="d-flex justify-content-end gap-1">
+                                <a href="/stories/edit/{{ s.id }}" 
+                                   class="btn btn-sm btn-outline-danger rounded-3 d-flex align-items-center justify-content-center" 
+                                   style="width: 38px; height: 38px;"
+                                   title="แก้ไข">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                
+                                <form action="/stories/delete/{{ s.id }}" method="POST" class="d-inline" id="delete-form-{{ s.id }}">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger rounded-3 d-flex align-items-center justify-content-center" 
+                                            style="width: 38px; height: 38px;"
+                                            title="ลบ"
+                                            onclick="confirmDelete('{{ s.id }}', '{{ (s.scenario or s.problem) | replace("'", "\\'") }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+                            ไม่พบข้อมูล Support Stories
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="border-top">
+        {{ render_pagination('stories_list', page, total_pages) }}
+    </div>
+</div>
+{% endblock %}

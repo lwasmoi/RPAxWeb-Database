@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+
+{% block content %}
+{% set type_thai = {
+    'manual': 'คู่มือการใช้งาน',
+    'guide': 'แนวทางปฏิบัติ',
+    'warning': 'ข้อควรระวัง',
+    'info': 'ข้อมูลทั่วไป',
+    'troubleshoot': 'การแก้ปัญหา',
+    'contact': 'ข้อมูลติดต่อ',
+    'rule': 'ระเบียบ/ข้อบังคับ'
+} %}
+
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-warning text-dark py-3">
+                <h5 class="mb-0 fw-bold">
+                    {% if action == 'add' %}
+                        <i class="bi bi-plus-circle px-4"></i>เพิ่มเนื้อหาคู่มือ
+                    {% else %}
+                        <i class="bi bi-pencil-square px-4"></i>แก้ไขเนื้อหาคู่มือ
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">ขั้นตอน<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="topic" value="{{ chunk.topic or '' }}" required 
+                               placeholder="ขั้นตอนที่ 1: เข้าสู่เมนู , การลบเอกสารใบเสร็จ">
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">หมวดหมู่<span class="text-danger">*</span></label>
+                            <select class="form-select" name="category_id" required>
+                                <option value="">-- เลือกหมวดหมู่ --</option>
+                                {% for c in categories %}
+                                <option value="{{ c.id }}" {% if chunk.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">เอกสารอ้างอิง<span class="text-danger">*</span></label>
+                            <select class="form-select" name="doc_id" required>
+                                <option value="">-- เลือกไฟล์เอกสารต้นฉบับ --</option>
+                                {% for d in documents %}
+                                <option value="{{ d.id }}" {% if chunk.doc_id == d.id %}selected{% endif %}>{{ d.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                         <div class="col-md-6">
+                            <label class="form-label fw-bold">ทุนวิจัย</label>
+                            <select class="form-select" name="fund_abbr">
+                                <option value="">-- ระบุทุน ถ้ามี --</option>
+                                {% for f in funds %}
+                                <option value="{{ f.fund_abbr }}" {% if chunk.fund_abbr == f.fund_abbr %}selected{% endif %}>{{ f.fund_abbr }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">ประเภทข้อมูล<span class="text-danger">*</span></label>
+                            <select class="form-select" name="data_type" required>
+                                <option value="">-- เลือกประเภทข้อมูล --</option>
+                                {% for dt in data_type_options %}
+                                    <option value="{{ dt }}" {% if chunk.data_type == dt %}selected{% endif %}>
+                                        {{ type_thai.get(dt, dt) }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">เรื่อง <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="section" value="{{ chunk.section or '' }}" required
+                                   placeholder="เช่น การขอเบิกเงิน , การอัปโหลดใบเสร็จ">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Step Number<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="step_number" value="{{ chunk.step_number or '0' }}" required min="0">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">เนื้อหา<span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="content" rows="6" required 
+                                  placeholder="ระบุรายละเอียดเนื้อหาจากเอกสารต้นฉบับที่ต้องการให้ AI นำไปตอบคำถาม...">{{ chunk.content or '' }}</textarea>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="/manuals" class="btn btn-light border px-4">ยกเลิก</a>
+                        <button type="submit" class="btn btn-warning text-dark px-4 fw-bold">บันทึกข้อมูล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">
+                    {% if action == 'add' %}
+                        <i class="bi bi-plus-circle me-2"></i>เพิ่มหมวดหมู่ใหม่
+                    {% else %}
+                        <i class="bi bi-pencil-square me-2"></i>แก้ไขหมวดหมู่
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ชื่อหมวดหมู่ (Category Name) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" value="{{ cat.name or '' }}" required
+                               placeholder="เช่น ใบเสร็จรับเงิน, ค่าใช้จ่าย">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">กลุ่มหลัก (Main Group) <span class="text-danger">*</span></label>
+                        <select class="form-select" name="main_group" required>
+                            <option value="">-- เลือกกลุ่มหลัก --</option>
+                            {% for group in group_options %}
+                                <option value="{{ group }}" {% if cat.main_group == group %}selected{% endif %}>{{ group }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">คำอธิบาย (Description) <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="description" rows="3" required
+                                  placeholder="รายละเอียดเพิ่มเติมว่าหมวดหมู่นี้เกี่ยวกับอะไร...">{{ cat.description or '' }}</textarea>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="/categories" class="btn btn-light me-2">ยกเลิก</a>
+                        <button type="submit" class="btn btn-secondary px-4">บันทึกข้อมูล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

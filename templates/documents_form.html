@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white py-3">
+                <h5 class="mb-0 fw-bold">
+                    {% if action == 'add' %}
+                        <i class="bi bi-plus-circle me-2"></i>เพิ่มเอกสารใหม่
+                    {% else %}
+                        <i class="bi bi-pencil-square me-2"></i>แก้ไขเอกสาร
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ชื่อเอกสาร<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="title" value="{{ doc.title or '' }}" required
+                               placeholder="เช่น ระเบียบกองทุนวิจัย , คู่มือการใช้งานระบบ...">
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">เวอร์ชัน<span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="updateVersion(-1)">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                <input type="number" 
+                                       id="versionInput"
+                                       name="version" 
+                                       class="form-control text-center fw-bold" 
+                                       value="{{ doc.version or '1' }}" 
+                                       min="1" 
+                                       step="1"
+                                       required
+                                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                <button type="button" class="btn btn-outline-info" onclick="updateVersion(1)">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">วันที่อัปเดตล่าสุด<span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="last_updated" value="{{ doc.last_updated or '' }}" required>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="/documents" class="btn btn-light border me-2">ยกเลิก</a>
+                        <button type="submit" class="btn btn-info text-white px-4">
+                            บันทึกข้อมูล
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateVersion(change) {
+        const input = document.getElementById('versionInput');
+        let currentVal = parseInt(input.value) || 1; 
+        let newVal = currentVal + change;
+        if (newVal < 1) newVal = 1; 
+        input.value = newVal;
+    }
+</script>
+{% endblock %}
