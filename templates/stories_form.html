@@ -1,6 +1,20 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<style>
+    /* ปรับแต่งความสูงของ Editor ให้พอดีกับหน้าจอ */
+    .EasyMDEContainer .CodeMirror {
+        min-height: 250px;
+        border-radius: 0 0 12px 12px;
+        font-family: 'Courier New', Courier, monospace;
+    }
+    .editor-toolbar {
+        border-radius: 12px 12px 0 0;
+        background: #f8f9fa;
+    }
+</style>
+
 <div class="row justify-content-center">
     <div class="col-md-9">
         <div class="card shadow-sm border-0">
@@ -14,7 +28,7 @@
                 </h5>
             </div>
             <div class="card-body p-4">
-                <form method="POST">
+                <form method="POST" id="story-form">
                     <div class="mb-3">
                         <label class="form-label fw-bold">หมวดหมู่ (Category) <span class="text-danger">*</span></label>
                         <select class="form-select" name="category_id" required>
@@ -32,18 +46,103 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold">วิธีแก้ไข (Solution) <span class="text-danger">*</span></label>
-                        <textarea class="form-control" name="solution" rows="6" required
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold m-0">วิธีแก้ไข (Solution) <span class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-sm btn-dark shadow-sm" id="ai-format-btn">
+                                <i class="bi text-warning me-1"></i>AI Format
+                            </button>
+                        </div>
+                        <textarea class="form-control" name="solution" id="solution-editor"
                                   placeholder="1. ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต&#10;2. ลองกดรีเฟรชหน้าจอ...">{{ story.solution or '' }}</textarea>
+                        <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i> ใช้ Markdown เพื่อจัดระเบียบขั้นตอนการแก้ปัญหาให้ AI Chatbot อ่านง่ายขึ้น</div>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <a href="/stories" class="btn btn-light border me-2">ยกเลิก</a>
-                        <button type="submit" class="btn btn-danger px-4">บันทึกข้อมูล</button>
+                        <button type="submit" class="btn btn-danger px-4 shadow-sm">บันทึกข้อมูล</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // เริ่มต้นใช้งาน Markdown Editor ในช่องวิธีแก้ไข
+        const easyMDE = new EasyMDE({ 
+            element: document.getElementById('solution-editor'),
+            spellChecker: false,
+            autosave: { enabled: false },
+            placeholder: "พิมพ์ขั้นตอนวิธีแก้ไขที่นี่ หรือกดปุ่ม AI Format เพื่อจัดระเบียบข้อความ...",
+            tabSize: 4,
+        });
+
+        const aiBtn = document.getElementById('ai-format-btn');
+        const loader = document.getElementById('global-loader');
+
+        // Logic เมื่อกดปุ่ม AI Format
+        aiBtn.addEventListener('click', async function() {
+            const currentContent = easyMDE.value();
+            if (!currentContent.trim()) {
+                Swal.fire('แจ้งเตือน', 'กรุณาพิมพ์วิธีแก้ไขก่อนกดจัดรูปแบบครับ', 'info');
+                return;
+            }
+
+            // แสดง Loader
+            if(loader) loader.style.display = 'flex';
+            aiBtn.disabled = true;
+
+            try {
+                // เรียกใช้ API ตัวเดิมจาก app.py ได้เลย เพราะหน้าที่จัด Format เหมือนกัน
+                const response = await fetch('/api/format-markdown', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: currentContent })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.formatted_content) {
+                    easyMDE.value(data.formatted_content);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'จัดรูปแบบสำเร็จ!',
+                        text: 'กรุณาตรวจสอบความถูกต้องของขั้นตอนก่อนบันทึกจริงครับ',
+                        timer: 3000
+                    });
+                } else {
+                    throw new Error(data.error || 'AI Server ติดขัด');
+                }
+            } catch (error) {
+                console.error('AI Error:', error);
+                Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อ AI ได้ในขณะนี้: ' + error.message, 'error');
+            } finally {
+                // ปิด Loader
+                if(loader) loader.style.display = 'none';
+                aiBtn.disabled = false;
+            }
+        });
+
+        // Logic ดักจับการกดปุ่ม "บันทึกข้อมูล"
+        const form = document.getElementById('story-form');
+        form.addEventListener('submit', function(event) {
+            const contentValue = easyMDE.value().trim();
+            
+            // ตรวจสอบว่ามีเนื้อหาใน Markdown Editor หรือไม่
+            if (!contentValue) {
+                event.preventDefault(); // สั่งเบรก ไม่ให้ฟอร์มเซฟ
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'แจ้งเตือน',
+                    text: 'กรุณาระบุวิธีแก้ไขปัญหาด้วยครับ'
+                });
+            } else {
+                // คืนค่า Markdown กลับเข้าไปใน Textarea ที่ซ่อนอยู่เพื่อส่งเข้า Backend
+                document.getElementById('solution-editor').value = contentValue;
+            }
+        });
+    });
+</script>
 {% endblock %}

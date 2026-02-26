@@ -1,6 +1,20 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<style>
+    /* ปรับแต่งความสูงของ Editor ให้พอดีกับหน้าจอ */
+    .EasyMDEContainer .CodeMirror {
+        min-height: 300px;
+        border-radius: 0 0 12px 12px;
+        font-family: 'Courier New', Courier, monospace;
+    }
+    .editor-toolbar {
+        border-radius: 12px 12px 0 0;
+        background: #f8f9fa;
+    }
+</style>
+
 {% set type_thai = {
     'manual': 'คู่มือการใช้งาน',
     'guide': 'แนวทางปฏิบัติ',
@@ -24,11 +38,11 @@
                 </h5>
             </div>
             <div class="card-body p-4">
-                <form method="POST">
+                <form method="POST" id="manual-form">
                     <div class="mb-4">
                         <label class="form-label fw-bold">ขั้นตอน<span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="topic" value="{{ chunk.topic or '' }}" required 
-                               placeholder="ขั้นตอนที่ 1: เข้าสู่เมนู , การลบเอกสารใบเสร็จ">
+                               placeholder="ขั้นตอนที่ 1: เข้าสู่เมนู">
                     </div>
 
                     <div class="row mb-3">
@@ -53,7 +67,7 @@
                     </div>
                     
                     <div class="row mb-3">
-                         <div class="col-md-6">
+                        <div class="col-md-6">
                             <label class="form-label fw-bold">ทุนวิจัย</label>
                             <select class="form-select" name="fund_abbr">
                                 <option value="">-- ระบุทุน ถ้ามี --</option>
@@ -78,8 +92,7 @@
                     <div class="row mb-4">
                         <div class="col-md-8">
                             <label class="form-label fw-bold">เรื่อง <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="section" value="{{ chunk.section or '' }}" required
-                                   placeholder="เช่น การขอเบิกเงิน , การอัปโหลดใบเสร็จ">
+                            <input type="text" class="form-control" name="section" value="{{ chunk.section or '' }}" required>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Step Number<span class="text-danger">*</span></label>
@@ -88,18 +101,102 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold">เนื้อหา<span class="text-danger">*</span></label>
-                        <textarea class="form-control" name="content" rows="6" required 
-                                  placeholder="ระบุรายละเอียดเนื้อหาจากเอกสารต้นฉบับที่ต้องการให้ AI นำไปตอบคำถาม...">{{ chunk.content or '' }}</textarea>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold m-0">เนื้อหา<span class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-sm btn-dark shadow-sm" id="ai-format-btn">
+                                <i class="bi text-warning me-1"></i> AI Format
+                            </button>
+                        </div>
+                        <textarea class="form-control" name="content" id="content-editor" 
+                                  placeholder="ระบุรายละเอียดเนื้อหา...">{{ chunk.content or '' }}</textarea>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <a href="/manuals" class="btn btn-light border px-4">ยกเลิก</a>
-                        <button type="submit" class="btn btn-warning text-dark px-4 fw-bold">บันทึกข้อมูล</button>
+                        <button type="submit" class="btn btn-warning text-dark px-4 fw-bold shadow-sm">บันทึกข้อมูล</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // เริ่มต้นใช้งาน Markdown Editor
+        const easyMDE = new EasyMDE({ 
+            element: document.getElementById('content-editor'),
+            spellChecker: false,
+            autosave: { enabled: false },
+            placeholder: "พิมพ์เนื้อหาที่นี่ หรือกดปุ่ม AI Format เพื่อจัดระเบียบข้อมูล...",
+            tabSize: 4,
+        });
+
+        const aiBtn = document.getElementById('ai-format-btn');
+        const loader = document.getElementById('global-loader');
+
+        // Logic เมื่อกดปุ่ม AI Format
+        aiBtn.addEventListener('click', async function() {
+            const currentContent = easyMDE.value();
+            if (!currentContent.trim()) {
+                Swal.fire('แจ้งเตือน', 'กรุณาพิมพ์เนื้อหาก่อนกดจัดรูปแบบครับ', 'info');
+                return;
+            }
+
+            // แสดงหน้าจอรอสักครู่ (Loader จาก layout.html)
+            loader.style.display = 'flex';
+            aiBtn.disabled = true;
+
+            try {
+                // เรียก API หลังบ้านที่เราเพิ่งสร้างใน app.py
+                const response = await fetch('/api/format-markdown', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: currentContent })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.formatted_content) {
+                    // อัปเดตเนื้อหาใน Editor ด้วย Markdown ที่ AI ทำเสร็จแล้ว
+                    easyMDE.value(data.formatted_content);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'จัดรูปแบบสำเร็จ!',
+                        text: 'กรุณาตรวจสอบความถูกต้องของตัวเลขและข้อมูลก่อนบันทึกจริงครับ',
+                        timer: 3000
+                    });
+                } else {
+                    throw new Error(data.error || 'AI Server ติดขัด');
+                }
+            } catch (error) {
+                console.error('AI Error:', error);
+                Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อ AI Server ของมหาลัยได้ในขณะนี้: ' + error.message, 'error');
+            } finally {
+                // ปิดหน้าจอรอ
+                loader.style.display = 'none';
+                aiBtn.disabled = false;
+            }
+        });
+
+        const form = document.getElementById('manual-form');
+        form.addEventListener('submit', function(event) {
+            const contentValue = easyMDE.value().trim();
+            
+            // ตรวจสอบว่ามีเนื้อหาหรือไม่
+            if (!contentValue) {
+                event.preventDefault(); // สั่งเบรก ไม่ให้ฟอร์มเซฟ
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'แจ้งเตือน',
+                    text: 'กรุณาระบุเนื้อหาในช่องข้อความด้วยครับ'
+                });
+            } else {
+                // ถ้ามีเนื้อหา ให้อัปเดตค่ากลับเข้าไปใน textarea ที่ซ่อนอยู่ก่อนส่งฟอร์ม
+                document.getElementById('content-editor').value = contentValue;
+            }
+        });
+    });
+</script>
 {% endblock %}

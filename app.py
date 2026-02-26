@@ -1,7 +1,13 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import db_actions
 import config
 import re
+import os
+import requests
+import urllib3  
+
+# ปิดแจ้งเตือน SSL Warning จะได้ไม่รกหน้า Console ตอนรัน Docker
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # app setup
 app = Flask(__name__)
@@ -15,6 +21,67 @@ def index():
     stats = db_actions.get_dashboard_stats()
     return render_template('dashboard.html', stats=stats)
 
+# ai formatting
+@app.route('/api/format-markdown', methods=['POST'])
+def format_markdown():
+    # รับข้อความดิบจากหน้าบ้าน 
+    raw_content = request.json.get('content', '')
+    if not raw_content:
+        return jsonify({'error': 'No content provided'}), 400
+
+    system_prompt = (
+        "Role: You are an expert in structuring research data.\n"
+        "Task: Convert the provided raw text into clear, well-structured Markdown (MD).\n"
+        "Formatting rules:\n"
+        "- Use `#` for main headings.\n"
+        "- Use `##` for subheadings.\n"
+        "- Use `-` for bulleted lists.\n"
+        "CRITICAL CONSTRAINT: Do NOT alter, modify, or remove any numbers, research fund names, or dates. You must maintain 100% data integrity from the original text."
+    )
+
+    try:
+        # ดึงค่าจาก Environment Variables
+        api_url = os.getenv('AI_API_URL')
+        model_name = os.getenv('AI_MODEL_NAME')
+        api_key = os.getenv('AI_API_KEY')
+
+        # สร้าง Headers สำหรับยืนยันตัวตน (Bearer Token)
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": raw_content}
+            ],
+            "temperature": 0.2,
+            "max_tokens": 2048
+        }
+        
+        # ส่ง Request ไปที่ API รอบเดียวจบ
+        response = requests.post(api_url, json=payload, headers=headers, timeout=45)
+        
+        # ดักจับ Error
+        if response.status_code != 200:
+            print(f"\n--- OPENTYPHOON ERROR ---")
+            print(f"Status Code: {response.status_code}")
+            print(f"Message: {response.text}")
+
+        # ถ้าไม่ 200 OK ให้กระโดดไปหา except ทันที
+        response.raise_for_status()
+        
+        ai_data = response.json()
+        formatted_md = ai_data['choices'][0]['message']['content']
+        
+        return jsonify({'formatted_content': formatted_md})
+        
+    except Exception as e:
+        print(f"[ERROR] AI Formatting Failed: {e}")
+        return jsonify({'error': 'ไม่สามารถเชื่อมต่อ AI Server หรือ API Key ไม่ถูกต้อง'}), 500
+    
 # research funds
 @app.route('/funds')
 def funds_list():
@@ -72,7 +139,7 @@ def funds_edit(id):
 
 @app.route('/funds/delete/<int:id>', methods=['POST'])
 def funds_delete(id):
-    # ระบบลบทุน: มีการเช็คความสัมพันธ์ว่ามีคู่มือตัวไหนใช้อยู่ไหม ถ้ามีจะบอก ID ทันที
+    # ระบบลบทุน: มีการเช็คความสัมพันธ์ว่ามีคู่มือตัวไหนใช้อยู่ไหม
     fund_abbr = None
     conn = db_actions.get_db_connection()
     if conn:
@@ -90,12 +157,11 @@ def funds_delete(id):
     except Exception as e:
         err_msg = str(e).lower()
         if 'manual_chunks' in err_msg:
-            # ค้นหา ID คู่มือที่ติดปัญหาอยู่
             ids = db_actions.get_blocking_ids('manual_chunks', 'fund_abbr', fund_abbr)
             id_str = ", ".join(map(str, ids))
-            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "manuals" ID ที่ {id_str} กรุณาลบ หรือ แก้ไข ข้อมูลเหล่านี้ก่อนทำรายการนี้ ', 'danger')
+            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "manuals" ID ที่ {id_str}', 'danger')
         else:
-            flash(f'ลบไม่สำเร็จ: ข้อมูล ID {id} ติดปัญหาอื่น ({e})', 'danger')
+            flash(f'ลบไม่สำเร็จ: {e}', 'danger')
     return redirect(url_for('funds_list'))
 
 # glossary
@@ -226,12 +292,12 @@ def documents_delete(id):
     except Exception as e:
         err_msg = str(e).lower()
         if 'manual_chunks' in err_msg:
-            # ดึง ID ของคู่มือที่ใช้อยู่มาโชว์
+
             ids = db_actions.get_blocking_ids('manual_chunks', 'doc_id', id)
             id_str = ", ".join(map(str, ids))
-            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "manuals" ID ที่ {id_str} กรุณาลบ หรือ แก้ไข ข้อมูลเหล่านี้ก่อนทำรายการนี้ ', 'danger')
+            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "manuals" ID ที่ {id_str}', 'danger')
         else:
-            flash(f'ลบไม่สำเร็จ: ข้อมูล ID {id} ติดปัญหา ({e})', 'danger')
+            flash(f'ลบไม่สำเร็จ: {e}', 'danger')
     return redirect(url_for('documents_list'))
 
 # categories
@@ -291,7 +357,7 @@ def categories_edit(id):
 
 @app.route('/categories/delete/<int:id>', methods=['POST'])
 def categories_delete(id):
-    # ลบหมวดหมู่: เช็คทั้งใน "คู่มือ" และ "เคสช่วยเหลือ" ถ้ามีคนใช้งานอยู่จะแจ้งเตือนพร้อมบอก ID ทันที
+    # ลบหมวดหมู่: เช็คทั้งใน "คู่มือ" และ "เคสช่วยเหลือ"
     try:
         if db_actions.delete_category(id):
             flash(f'ลบหมวดหมู่ ID {id} สำเร็จ', 'success')
@@ -302,11 +368,11 @@ def categories_delete(id):
         if 'manual_chunks' in err_msg:
             ids = db_actions.get_blocking_ids('manual_chunks', 'category_id', id)
             id_str = ", ".join(map(str, ids))
-            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "manuals" ID ที่ {id_str} กรุณาลบ หรือ แก้ไข ข้อมูลเหล่านี้ก่อนทำรายการนี้ ', 'danger')
+            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "manuals" ID ที่ {id_str}', 'danger')
         elif 'support_stories' in err_msg:
             ids = db_actions.get_blocking_ids('support_stories', 'category_id', id)
             id_str = ", ".join(map(str, ids))
-            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "stories" ID ที่ {id_str} กรุณาลบ หรือ แก้ไข ข้อมูลเหล่านี้ก่อนทำรายการนี้ ', 'danger')
+            flash(f'ลบไม่สำเร็จ: พบการใช้งานในหน้า "stories" ID ที่ {id_str}', 'danger')
         else:
             flash(f'ลบไม่สำเร็จ: ข้อมูล ID {id} ติดปัญหาความสัมพันธ์อื่น', 'danger')
     return redirect(url_for('categories_list'))
@@ -336,7 +402,7 @@ def manuals_list():
 
 @app.route('/manuals/add', methods=['GET', 'POST'])
 def manuals_add():
-    # เพิ่มคู่มือใหม่ (มีการจัดการเรื่องชื่อย่อทุนเป็นค่าว่างให้เป็น NULL)
+    # เพิ่มคู่มือใหม่
     if request.method == 'POST':
         data = request.form.to_dict()
         data.pop('id', None)
