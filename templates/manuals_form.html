@@ -149,8 +149,9 @@
             aiBtn.disabled = true;
 
             try {
-                // เรียก API หลังบ้านที่เราเพิ่งสร้างใน app.py
-                const response = await fetch('/api/format-markdown', {
+                const API_BASE = window.BASE_PATH || "";
+                const apiUrl = `${API_BASE}/api/format-markdown`;
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content: currentContent })

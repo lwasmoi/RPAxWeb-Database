@@ -95,8 +95,9 @@
             aiBtn.disabled = true;
 
             try {
-                // เรียกใช้ API ตัวเดิมจาก app.py ได้เลย เพราะหน้าที่จัด Format เหมือนกัน
-                const response = await fetch('/api/format-markdown', {
+                const API_BASE = window.BASE_PATH || "";
+                const apiUrl = `${API_BASE}/api/format-markdown`;
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content: currentContent })
